@@ -12,7 +12,6 @@
 
 #define OPCODE_SIZE 12 /* ARM hook size is 12 bytes */
 
-
 struct hookdata_t
 {
 	void* paddr;
@@ -20,7 +19,6 @@ struct hookdata_t
 	unsigned char m_opcode[OPCODE_SIZE];
 	struct list_head list;
 };
-
 
 LIST_HEAD(head_obj);
 
@@ -53,14 +51,21 @@ static void ric_save ( void* p_addr,  const unsigned char* p_opcode, const unsig
 	{
 		/* allocate the memory for the whole object */
 		ps = kzalloc(sizeof(*ps), GFP_KERNEL);
-		if ( !ps )
+		if (!ps)
 		{
 			pr_err("unable to allocate memory\n");
 			return;
 		}
+
 		ps->paddr = p_addr;
 		memcpy(ps->m_data, p_data, OPCODE_SIZE);
 		memcpy(ps->m_opcode, p_opcode, OPCODE_SIZE);
+		#ifdef DEBUG
+		pr_info("I got: %zu bytes of memory\n", ksize(ps));
+		pr_info("%s: p_addr 0x%p\n", __func__, ps->paddr);
+		print_hex_dump(KERN_DEBUG, "m_opcode ", DUMP_PREFIX_ADDRESS, 16, 1, ps->m_opcode, OPCODE_SIZE, true);
+		print_hex_dump(KERN_DEBUG, "m_data ", DUMP_PREFIX_ADDRESS, 16, 1, ps->m_data, OPCODE_SIZE, true);
+		#endif
 		list_add(&ps->list, &head_obj);
 	}
 }
@@ -75,6 +80,12 @@ static void ric_rewrite ( void* p_addr, void* p_data )
 	memcpy(m_opcode, "\x00\xf0\x9f\xe5\x00\x00\x00\x00\x00\x00\x00\x00", OPCODE_SIZE);
 	*(unsigned long*)&(m_opcode)[4] = (unsigned long)p_data;
 	*(unsigned long*)&(m_opcode)[8] = (unsigned long)p_data;
+
+        #ifdef DEBUG
+        pr_info("%s: hooking function 0x%p with 0x%p\n", __func__, p_addr, p_data);
+        print_hex_dump(KERN_DEBUG, "p_addr ", DUMP_PREFIX_ADDRESS, 16, 1, p_addr, OPCODE_SIZE, true);
+        print_hex_dump(KERN_DEBUG, "p_data ", DUMP_PREFIX_ADDRESS, 16, 1, p_data, OPCODE_SIZE, true);
+        #endif
 
 	memcpy(m_data, p_addr, OPCODE_SIZE); /* save target pointer */
 
@@ -105,7 +116,7 @@ static int __init ric_mod_init(void)
 {
 
 	m_address=kallsyms_lookup_name("sony_ric_enabled");
-	if(m_address!=0)
+	if(m_address)
 	{
 		ric_rewrite((void*)m_address, &sony_ric_disabled);
 		ric_enable=!ric_enable;
