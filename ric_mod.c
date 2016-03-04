@@ -1,6 +1,14 @@
+/* ric_mod.c
+ *
+ * Hooking sony_ric_enabled() from Sony RIC Security Module.
+ * Mount the file system as read/write.
+ *
+ */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/vmalloc.h>
 #include <linux/kallsyms.h>
 #include <linux/version.h>
 #include <linux/slab.h>
@@ -11,6 +19,15 @@
 #define DRIVER_VERSION "0.1"
 
 #define OPCODE_SIZE 12 /* ARM hook size is 12 bytes */
+
+/*
+ * On some old kernel releases the module failed to load properly when kmalloc() is called.
+ *
+ * define VMALLOCED for memory allocation by vmalloc().
+ */
+#if 0
+#define VMALLOCED
+#endif
 
 struct hookdata_t
 {
@@ -50,7 +67,11 @@ static void ric_save ( void* p_addr,  const unsigned char* p_opcode, const unsig
 	if(p_addr!=NULL && p_opcode!=NULL && p_data!=NULL)
 	{
 		/* allocate the memory for the whole object */
+		#ifdef VMALLOCED
+		ps = vmalloc(sizeof(*ps));
+		#else
 		ps = kzalloc(sizeof(*ps), GFP_KERNEL);
+		#endif
 		if (!ps)
 		{
 			pr_err("unable to allocate memory\n");
@@ -107,7 +128,11 @@ static void ric_restore ( void* p_addr )
 		arm_poke(p_addr, ps->m_data);
 		ric_enable=!ric_enable;
 		list_del( &ps->list);
+		#ifdef VMALLOCED
+		vfree(ps);
+		#else
 		kfree(ps);
+		#endif
 		break;
 	}
 }
