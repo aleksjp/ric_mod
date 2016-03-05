@@ -1,0 +1,25 @@
+# root of Android NDK 
+ROOT=/opt/Devandroid
+
+# target executable name
+FNAME=copymodulecrc
+
+# NDK version
+NDK=android-ndk-r10e
+
+PREFIX=$(ROOT)/$(NDK)/toolchains/arm-linux-androideabi-4.8/prebuilt/windows/bin/arm-linux-androideabi-
+
+SYSROOT=--sysroot=$(ROOT)/$(NDK)/platforms/android-21/arch-arm/
+
+CC=$(PREFIX)gcc $(SYSROOT)
+LD=$(PREFIX)gcc $(SYSROOT)
+
+CFLAGS=-c -Wall -O2
+LDFLAGS=-pie -fPIE
+
+all:
+	$(CC) $(CFLAGS) $(FNAME).c
+	$(LD) $(FNAME).o -o $(FNAME) $(LDFLAGS)
+
+clean:
+	rm -rf *.o
