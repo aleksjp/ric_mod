@@ -4,7 +4,7 @@
 *
 * When a module is loaded, the crc values contained in the kernel are compared with similar values in
 * the module. if they are not equal, the kernel refuses to load the module. Therefore, if you want to
-* use a kernel module in different Android versions the module_layout symbol crc should be equal.
+* use a kernel module in different releases the module_layout symbol crc should be equal.
 */
 
 #include <stdio.h>
@@ -19,10 +19,11 @@
 
 enum open_mode {MODE_READ, MODE_WRITE};
 
-/* checks if current offset is a signature */
-bool compare(const unsigned char* data, const char* sigdata, unsigned int siglen)
+/* checks if current offset is a byte of signature */
+static bool compare(const unsigned char* data, const char* sigdata, unsigned int siglen)
 {
         size_t i=0;
+
         /* search the whole length */
 	for (i=0; i<siglen; i++)
 	{
@@ -34,29 +35,28 @@ bool compare(const unsigned char* data, const char* sigdata, unsigned int siglen
 
 /**
   find_addr - search a region of memory for a specified signature.
-  @address: specifies the base memory address, start address.
-  @size: the search size range that will be analyzed.
+  @address: Specifies the base memory address, start address.
+  @size: The search size range that will be analyzed.
   @sigdata: pointer to signature.
-  @len: the length of signature in bytes.
-  @return: the address of signature, or 0 if not found.
+  @len: The length of signature in bytes.
+  @return: The address of signature, or 0 if not found.
 */
-unsigned long find_addr(unsigned long address, unsigned long size, char *sigdata, unsigned int len)
+unsigned long find_addr(unsigned long address, unsigned long size, const char *sigdata, unsigned int len)
 {
 	size_t i=0;
 
 	for(i=0; i<(size-len); i++)
-
+	{
 		if( compare((unsigned char*)(address+i), sigdata, len ))
-
 			return (unsigned long)(address+i); /* address found! return it */
-
+	}
 	return 0;
 
 }
 /**
  * Get the size of a file.
- * @filename The name of the file to check size for.
- * @return the filesize in bytes, or -1 on error.
+ * @filename: The name of the file to check size for.
+ * @return: The filesize in bytes, or -1 on error.
  */
 off_t get_fsize(const char* filename)
 {
@@ -68,11 +68,12 @@ off_t get_fsize(const char* filename)
 }
 
 /**
+
  * read_module - open() and map a file into memory.
- * @filename: pointer to input file.
- * @_size: pointer to output file size.
- * @_fd: pointer to file descriptors.
- * @mode: open, mapped mode (MODE_READ - reading only/pages may be read;
+ * @filename: Pointer to the input file.
+ * @_size: Pointer to the output file size.
+ * @_fd: Pointer to the file descriptor.
+ * @mode: MODE_READ - reading only/pages may be read;
  * MODE_WRITE - reading and writing/pages can be written.
  * @return: pointer to the mapped area, or NULL on error.
  */
@@ -129,14 +130,13 @@ int main(int argc, char* argv[])
 
 	if (argc != 3)
 	{
-		fprintf(stderr, "Usage: %s <srcmodule> <dstmodule>\n", argv[0]);
+		fprintf(stderr, "Usage: ./copymodulecrc <srcmodule> <dstmodule>\n");
 		return -EINVAL;
 	}
 
 	data = read_module(argv[1], &size, &fd, MODE_READ);
-	if (!data)
-		return -1;
-
+	if (data == NULL)
+	     return -1;
 	/*
 	__versions:000000C0 31 DC 67 42                       DCD 0x4267DC31
 	__versions:000000C4 6D 6F 64 75 6C 65+aModule_layout  DCB "module_layout"
@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
 	close(fd);
 
 	data = read_module(argv[2], &size, &fd, MODE_WRITE);
-	if (data==NULL)
+	if (data == NULL)
 		return -1;
 
 	crc1 = find_addr((ptrdiff_t)data, size, "\x6d\x6f\x64\x75\x6c\x65\x5f\x6c\x61\x79\x6f\x75\x74", 13);
@@ -165,6 +165,7 @@ int main(int argc, char* argv[])
 	{
 		fprintf(stderr, "crc not found in destination module\n");
 		munmap(data, size);
+		close(fd);
 		return -1;
 	}
 
